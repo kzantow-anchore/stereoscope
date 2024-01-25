@@ -1,9 +1,29 @@
 package image
 
-import "context"
+import (
+	"context"
+
+	"github.com/anchore/stereoscope/pkg/file"
+)
+
+// ProviderConfig is the uber-configuration containing everything needed by stereoscope image providers
+type ProviderConfig struct {
+	Registry           RegistryOptions
+	AdditionalMetadata []AdditionalMetadata
+	Platform           *Platform
+	TempDirGenerator   *file.TempDirGenerator
+}
+
+func NewProviderConfig(rootTempDirGenerator *file.TempDirGenerator) ProviderConfig {
+	return ProviderConfig{
+		TempDirGenerator: rootTempDirGenerator.NewGenerator(),
+	}
+}
 
 // Provider is an abstraction for any object that provides image objects (e.g. the docker daemon API, a tar file of
 // an OCI image, podman varlink API, etc.).
 type Provider interface {
-	Provide(context.Context, ...AdditionalMetadata) (*Image, error)
+	Provide(ctx context.Context, userInput string, cfg ProviderConfig) (*Image, error)
 }
+
+type ProviderFunc func(ctx context.Context, userInput string, cfg ProviderConfig) (*Image, error)
