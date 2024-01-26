@@ -65,7 +65,7 @@ func WithPlatform(platform string) Option {
 // GetImage parses the user provided image string and provides an image object;
 // note: the source where the image should be referenced from is automatically inferred.
 func GetImage(ctx context.Context, userStr string, options ...Option) (*image.Image, error) {
-	cfg := image.NewProviderConfig(rootTempDirGenerator)
+	cfg := DefaultImageProviderConfig()
 	if err := applyOptions(&cfg, options...); err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func GetImage(ctx context.Context, userStr string, options ...Option) (*image.Im
 func GetImageFromSource(ctx context.Context, imgStr string, source image.Source, options ...Option) (*image.Image, error) {
 	log.Debugf("image: source=%+v location=%+v", source, imgStr)
 
-	cfg := image.NewProviderConfig(rootTempDirGenerator)
+	cfg := DefaultImageProviderConfig()
 	if err := applyOptions(&cfg, options...); err != nil {
 		return nil, err
 	}
@@ -96,6 +96,12 @@ func SetLogger(logger logger.Logger) {
 
 func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
+}
+
+func DefaultImageProviderConfig() image.ProviderConfig {
+	return image.ProviderConfig{
+		TempDirGenerator: rootTempDirGenerator.NewGenerator(),
+	}
 }
 
 // Cleanup deletes all directories created by stereoscope calls.

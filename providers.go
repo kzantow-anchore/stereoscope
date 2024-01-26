@@ -29,22 +29,22 @@ import (
 func ImageProviders() tagged.Values[image.Provider] {
 	return tagged.Values[image.Provider]{
 		// file providers
-		provide(image.DockerTarballSource, DockerTarballProvider, "file"),
-		provide(image.OciTarballSource, OciTarballProvider, "file"),
-		provide(image.OciDirectorySource, OciDirectoryProvider, "file"),
-		provide(image.SingularitySource, SingularityProvider, "file"),
+		provide(image.DockerTarballSource, dockerTarballProvider, "file"),
+		provide(image.OciTarballSource, ociTarballProvider, "file"),
+		provide(image.OciDirectorySource, ociDirectoryProvider, "file", "dir"),
+		provide(image.SingularitySource, singularityProvider, "file"),
 
 		// daemon providers
-		provide(image.DockerDaemonSource, DockerDaemonProvider, "daemon", "pull"),
-		provide(image.PodmanDaemonSource, PodmanDaemonProvider, "daemon", "pull"),
-		provide(image.ContainerdDaemonSource, ContainerdDaemonProvider, "daemon", "pull"),
+		provide(image.DockerDaemonSource, dockerDaemonProvider, "daemon", "pull"),
+		provide(image.PodmanDaemonSource, podmanDaemonProvider, "daemon", "pull"),
+		provide(image.ContainerdDaemonSource, containerdDaemonProvider, "daemon", "pull"),
 
 		// registry providers
-		provide(image.OciRegistrySource, OciRegistryProvider, "registry", "pull"),
+		provide(image.OciRegistrySource, ociRegistryProvider, "registry", "pull"),
 	}
 }
 
-func DockerDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func dockerDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func DockerDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func PodmanDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func podmanDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func PodmanDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func ContainerdDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func containerdDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -140,7 +140,7 @@ func ContainerdDaemonProvider(ctx context.Context, userInput string, cfg image.P
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func DockerTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func dockerTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.DockerTarballSource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not a Docker archive file: %w", err)
@@ -153,7 +153,7 @@ func DockerTarballProvider(ctx context.Context, userInput string, cfg image.Prov
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func OciTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.OciTarballSource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not an OCI archive file: %w", err)
@@ -166,7 +166,7 @@ func OciTarballProvider(ctx context.Context, userInput string, cfg image.Provide
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func OciDirectoryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociDirectoryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.OciDirectorySource, userInput, cfg)
 	if !exists || !isDir {
 		return nil, fmt.Errorf("not an OCI directory: %w", err)
@@ -179,7 +179,7 @@ func OciDirectoryProvider(ctx context.Context, userInput string, cfg image.Provi
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func SingularityProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func singularityProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.SingularitySource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not a Singularity archive: %w", err)
@@ -204,7 +204,7 @@ func SingularityProvider(ctx context.Context, userInput string, cfg image.Provid
 	return provider.Provide(ctx, cfg.AdditionalMetadata...)
 }
 
-func OciRegistryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociRegistryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
