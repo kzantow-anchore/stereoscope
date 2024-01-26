@@ -1,5 +1,7 @@
 package tagged
 
+import "reflect"
+
 // Value holds an arbitrary value with associated tags
 type Value[T any] struct {
 	Value T
@@ -129,5 +131,11 @@ func (t Values[T]) Sort(tags ...string) Values[T] {
 }
 
 func isEqual(a, b any) bool {
-	return a == b
+	if a == b {
+		return true
+	}
+	if reflect.ValueOf(a) == reflect.ValueOf(b) {
+		return true
+	}
+	return false
 }
