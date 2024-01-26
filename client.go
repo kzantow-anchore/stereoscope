@@ -2,6 +2,7 @@ package stereoscope
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -64,30 +65,55 @@ func WithPlatform(platform string) Option {
 
 // GetImage parses the user provided image string and provides an image object;
 // note: the source where the image should be referenced from is automatically inferred.
-func GetImage(ctx context.Context, userStr string, options ...Option) (*image.Image, error) {
-	cfg := DefaultImageProviderConfig()
-	if err := applyOptions(&cfg, options...); err != nil {
-		return nil, err
-	}
-	return imageFromProviders(ctx, userStr, cfg)
+func GetImage(ctx context.Context, imgStr string, options ...Option) (*image.Image, error) {
+	return GetImageFromSource(ctx, imgStr, "", options...)
 }
 
 // GetImageFromSource returns an image from the explicitly provided source.
 func GetImageFromSource(ctx context.Context, imgStr string, source image.Source, options ...Option) (*image.Image, error) {
 	log.Debugf("image: source=%+v location=%+v", source, imgStr)
 
+	// get config and apply options
 	cfg := DefaultImageProviderConfig()
 	if err := applyOptions(&cfg, options...); err != nil {
 		return nil, err
 	}
 
+	// select image provider
+	providers := ImageProviders()
 	source = strings.ToLower(strings.TrimSpace(source))
-	providers := ImageProviders().Keep(source).Collect()
+	if source != "" {
+		providers = providers.Select(source)
+	}
 	if len(providers) < 1 {
 		return nil, fmt.Errorf("unable to find source: %s", source)
 	}
 
-	return imageFromProviders(ctx, imgStr, cfg, providers...)
+	return DetectImage(ctx, imgStr, cfg, providers.Collect()...)
+}
+
+// DetectImage returns the first image found by providers
+func DetectImage(ctx context.Context, userInput string, cfg image.ProviderConfig, providers ...image.Provider) (*image.Image, error) {
+	log.Debugf("detect image: location=%s", userInput)
+
+	var errs []error
+	if len(providers) == 0 {
+		providers = ImageProviders().Collect()
+	}
+	for _, provider := range providers {
+		img, err := provider.Provide(ctx, userInput, cfg)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if img != nil {
+			err = img.Read()
+			if err != nil {
+				errs = append(errs, fmt.Errorf("could not read image: %w", err))
+			}
+			return img, errors.Join(errs...)
+		}
+	}
+	return nil, fmt.Errorf("unable to detect input for '%s', err: %w", userInput, errors.Join(errs...))
 }
 
 func SetLogger(logger logger.Logger) {

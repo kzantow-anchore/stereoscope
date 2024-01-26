@@ -2,7 +2,6 @@ package stereoscope
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"runtime"
@@ -219,29 +218,6 @@ func ensureRegistryReference(imageSpec string) error {
 	// we only want to validate the bare minimum number of image specification features, not exhaustive.
 	_, err := name.ParseReference(imageSpec, name.WeakValidation)
 	return err
-}
-
-// imageFromProviders takes a user string and determines the image source (e.g. the docker daemon, a tar file, etc.) returning the string subset representing the image (or nothing if it is unknown).
-// note: parsing is done relative to the given string and environmental evidence (i.e. the given filesystem) to determine the actual source.
-func imageFromProviders(ctx context.Context, userInput string, cfg image.ProviderConfig, providers ...image.Provider) (*image.Image, error) {
-	var errs []error
-	if len(providers) == 0 {
-		providers = ImageProviders().Collect()
-	}
-	for _, provider := range providers {
-		img, err := provider.Provide(ctx, userInput, cfg)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if img != nil {
-			err = img.Read()
-			if err != nil {
-				errs = append(errs, fmt.Errorf("could not read image: %w", err))
-			}
-			return img, errors.Join(errs...)
-		}
-	}
-	return nil, fmt.Errorf("unable to detect input for '%s', err: %w", userInput, errors.Join(errs...))
 }
 
 func detectLocalFile(provider string, userInput string, cfg image.ProviderConfig) (filePath string, exists bool, isDir bool, localFs afero.Fs, err error) {

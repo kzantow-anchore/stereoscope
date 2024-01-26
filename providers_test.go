@@ -292,7 +292,7 @@ func TestParseScheme(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		candidates := ImageProviders().Keep(c.source)
+		candidates := ImageProviders().Select(c.source)
 		require.Len(t, candidates, 1)
 		require.True(t, candidates[0].HasTag(c.source))
 	}
@@ -378,7 +378,7 @@ func TestDetectSourceFromPath(t *testing.T) {
 			// TODO
 			// FIXME
 
-			//actual, err := imageFromProviders(ctx, test.path, cfg, ImageProviders().Keep("file").Collect()...)
+			//actual, err := imageFromProviders(ctx, test.path, cfg, ImageProviders().Select("file").Collect()...)
 			//
 			//ImageProviders()
 			//actual, err := detectSourceFromPath(fs, test.path)

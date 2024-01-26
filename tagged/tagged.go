@@ -29,7 +29,16 @@ func New[T any](value T, tags ...string) Value[T] {
 // Values is a utility to handle a set of tagged items including basic filtering
 type Values[T any] []Value[T]
 
-// HasTag indicates one or more Values within this set has a tag matching one or more of the provided arguments
+// Collect returns a slice containing the values in the set
+func (t Values[T]) Collect() []T {
+	out := make([]T, len(t))
+	for i, v := range t {
+		out[i] = v.Value
+	}
+	return out
+}
+
+// HasTag indicates this set contains one or more items matching any of the provided tags
 func (t Values[T]) HasTag(tags ...string) bool {
 	for _, tagged := range t {
 		if tagged.HasTag(tags...) {
@@ -39,10 +48,22 @@ func (t Values[T]) HasTag(tags ...string) bool {
 	return false
 }
 
-// Keep returns a new set of Values matching any of the provided tags or all values if no tags provided
-func (t Values[T]) Keep(tags ...string) Values[T] {
+// HasValue indicates at least one of the provided values is present in this set
+func (t Values[T]) HasValue(value ...T) bool {
+	for _, tagged := range t {
+		for _, v := range value {
+			if isEqual(tagged.Value, v) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Select returns a new set of values matching any of the provided tags
+func (t Values[T]) Select(tags ...string) Values[T] {
 	if len(tags) == 0 {
-		return t
+		return Values[T]{}
 	}
 	out := make(Values[T], 0, len(t))
 	for _, tagged := range t {
@@ -53,7 +74,7 @@ func (t Values[T]) Keep(tags ...string) Values[T] {
 	return out
 }
 
-// Remove returns a new set of Values that do not match any of the provided tags
+// Remove returns a new set of values, excluding those with any of the provided tags
 func (t Values[T]) Remove(tags ...string) Values[T] {
 	if len(tags) == 0 {
 		return t
@@ -67,31 +88,42 @@ func (t Values[T]) Remove(tags ...string) Values[T] {
 	return out
 }
 
-// Collect returns a slice containing the values in the set
-func (t Values[T]) Collect() []T {
-	out := make([]T, len(t))
-	for i, v := range t {
-		out[i] = v.Value
+// Join returns a new set of values, combining this set and the provided values, omitting duplicates
+func (t Values[T]) Join(taggedValues ...Value[T]) Values[T] {
+	if len(taggedValues) == 0 {
+		return t
+	}
+	out := make(Values[T], 0, len(t)+len(taggedValues))
+	out = append(out, t...)
+	for _, value := range taggedValues {
+		if t.HasValue(value.Value) {
+			continue
+		}
+		out = append(out, value)
 	}
 	return out
 }
 
-// Add adds the tagged sets to a new set and returns the new set
-func (t Values[T]) Add(tagged Values[T]) Values[T] {
-	if len(tagged) == 0 {
+// Sort returns a new set of Values with the entries ordered by the provided tags
+func (t Values[T]) Sort(tags ...string) Values[T] {
+	if len(tags) == 0 {
 		return t
 	}
-	out := make(Values[T], 0, len(t)+len(tagged))
-	out = append(out, t...)
-next:
-	for _, value := range tagged {
-		// check if already present and skip if so
+	out := make(Values[T], 0, len(t))
+	for _, tag := range tags {
 		for _, existing := range t {
-			if isEqual(existing.Value, value.Value) {
-				continue next
+			if existing.HasTag(tag) {
+				if out.HasValue(existing.Value) {
+					continue
+				}
+				out = append(out, existing)
 			}
 		}
-		out = append(out, value)
+	}
+	for _, v := range t {
+		if !v.HasTag(tags...) {
+			out = append(out, v)
+		}
 	}
 	return out
 }
