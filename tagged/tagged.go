@@ -1,6 +1,9 @@
 package tagged
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Value holds an arbitrary value with associated tags
 type Value[T any] struct {
@@ -58,6 +61,18 @@ func (t Values[T]) HasValue(value ...T) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func isEqual[T any](a, b T) bool {
+	va := reflect.ValueOf(a)
+	vb := reflect.ValueOf(b)
+	if va.Type().Kind() == reflect.Func {
+		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
+	}
+	if va.Comparable() {
+		return va.Equal(vb)
 	}
 	return false
 }
@@ -128,14 +143,4 @@ func (t Values[T]) Sort(tags ...string) Values[T] {
 		}
 	}
 	return out
-}
-
-func isEqual(a, b any) bool {
-	if a == b {
-		return true
-	}
-	if reflect.ValueOf(a) == reflect.ValueOf(b) {
-		return true
-	}
-	return false
 }

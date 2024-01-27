@@ -6,6 +6,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func Test_TaggedFuncs(t *testing.T) {
+	type testfunc func(t *testing.T)
+
+	values := Values[testfunc]{
+		New[testfunc](Test_Tagged, "one"),
+		New[testfunc](Test_TaggedFuncs, "two", "tagged"),
+		New[testfunc](Test_TaggedSort, "three", "tagged"),
+	}
+
+	require.True(t, values.HasValue(Test_TaggedFuncs))
+	require.False(t, values.HasValue(Test_Nothing))
+}
+
+func Test_Nothing(t *testing.T) {
+}
+
 func Test_Tagged(t *testing.T) {
 	set := Values[int]{
 		New(1, "one"),
