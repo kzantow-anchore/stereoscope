@@ -6,7 +6,7 @@ import (
 )
 
 // Value holds an arbitrary value with associated tags
-type Value[T any] struct {
+type Value[T comparable] struct {
 	Value T
 	Tags  []string
 }
@@ -24,7 +24,7 @@ func (t Value[T]) HasTag(tags ...string) bool {
 }
 
 // New returns a tagged value, that can be added to a Values collection
-func New[T any](value T, tags ...string) Value[T] {
+func New[T comparable](value T, tags ...string) Value[T] {
 	return Value[T]{
 		Value: value,
 		Tags:  tags,
@@ -32,7 +32,7 @@ func New[T any](value T, tags ...string) Value[T] {
 }
 
 // Values is a utility to handle a set of tagged items including basic filtering
-type Values[T any] []Value[T]
+type Values[T comparable] []Value[T]
 
 // Collect returns a slice containing the values in the set
 func (t Values[T]) Collect() []T {
@@ -53,7 +53,7 @@ func (t Values[T]) HasTag(tags ...string) bool {
 	return false
 }
 
-// HasValue indicates at least one of the provided values is present in this set
+// HasValue indicates any of the provided values is present in this set
 func (t Values[T]) HasValue(value ...T) bool {
 	for _, tagged := range t {
 		for _, v := range value {
@@ -65,27 +65,20 @@ func (t Values[T]) HasValue(value ...T) bool {
 	return false
 }
 
-func isEqual[T any](a, b T) bool {
-	va := reflect.ValueOf(a)
-	vb := reflect.ValueOf(b)
-	if va.Type().Kind() == reflect.Func {
-		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
-	}
-	if va.Comparable() {
-		return va.Equal(vb)
-	}
-	return false
-}
-
-// Select returns a new set of values matching any of the provided tags
+// Select returns a new set of values matching any of the provided tags, ordered by the provided tags
 func (t Values[T]) Select(tags ...string) Values[T] {
 	if len(tags) == 0 {
 		return Values[T]{}
 	}
 	out := make(Values[T], 0, len(t))
-	for _, tagged := range t {
-		if tagged.HasTag(tags...) {
-			out = append(out, tagged)
+	for _, tag := range tags {
+		for _, existing := range t {
+			if existing.HasTag(tag) {
+				if out.HasValue(existing.Value) {
+					continue
+				}
+				out = append(out, existing)
+			}
 		}
 	}
 	return out
@@ -121,26 +114,14 @@ func (t Values[T]) Join(taggedValues ...Value[T]) Values[T] {
 	return out
 }
 
-// Sort returns a new set of Values with the entries ordered by the provided tags
-func (t Values[T]) Sort(tags ...string) Values[T] {
-	if len(tags) == 0 {
-		return t
+func isEqual[T any](a, b T) bool {
+	va := reflect.ValueOf(a)
+	vb := reflect.ValueOf(b)
+	if va.Type().Comparable() {
+		return va.Equal(vb)
 	}
-	out := make(Values[T], 0, len(t))
-	for _, tag := range tags {
-		for _, existing := range t {
-			if existing.HasTag(tag) {
-				if out.HasValue(existing.Value) {
-					continue
-				}
-				out = append(out, existing)
-			}
-		}
+	if va.Type().Kind() == reflect.Func {
+		return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
 	}
-	for _, v := range t {
-		if !v.HasTag(tags...) {
-			out = append(out, v)
-		}
-	}
-	return out
+	return false
 }

@@ -6,22 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_TaggedFuncs(t *testing.T) {
-	type testfunc func(t *testing.T)
-
-	values := Values[testfunc]{
-		New[testfunc](Test_Tagged, "one"),
-		New[testfunc](Test_TaggedFuncs, "two", "tagged"),
-		New[testfunc](Test_TaggedSort, "three", "tagged"),
-	}
-
-	require.True(t, values.HasValue(Test_TaggedFuncs))
-	require.False(t, values.HasValue(Test_Nothing))
-}
-
-func Test_Nothing(t *testing.T) {
-}
-
 func Test_Tagged(t *testing.T) {
 	set := Values[int]{
 		New(1, "one"),
@@ -69,50 +53,6 @@ func Test_Tagged(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := set.Select(test.keep...).Remove(test.remove...)
-			if test.expected == nil {
-				require.Empty(t, got)
-				return
-			}
-			require.ElementsMatch(t, test.expected, got.Collect())
-		})
-	}
-}
-
-func Test_TaggedSort(t *testing.T) {
-	set := Values[int]{
-		New(1, "one"),
-		New(2, "two", "second"),
-		New(3, "three", "third"),
-		New(23, "twenty-three", "twenty", "third"),
-		New(4, "four", ""),
-		New(9, "nine"),
-	}
-
-	tests := []struct {
-		name     string
-		sort     []string
-		expected []int
-	}{
-		{
-			name:     "by single",
-			sort:     arr("four"),
-			expected: arr(4, 1, 2, 3, 23, 9),
-		},
-		{
-			name:     "by multiple",
-			sort:     arr("third", "two"),
-			expected: arr(3, 23, 2, 1, 4, 9),
-		},
-		{
-			name:     "by duplicate tags",
-			sort:     arr("two", "third", "two", "third"),
-			expected: arr(2, 3, 23, 1, 4, 9),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := set.Sort(test.sort...)
 			if test.expected == nil {
 				require.Empty(t, got)
 				return
