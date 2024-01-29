@@ -26,9 +26,9 @@ import (
 	"github.com/anchore/stereoscope/internal/bus"
 	"github.com/anchore/stereoscope/internal/log"
 	"github.com/anchore/stereoscope/pkg/event"
-	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
 	stereoscopeDocker "github.com/anchore/stereoscope/pkg/image/docker"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 var mb = math.Pow(2, 20)
@@ -36,7 +36,7 @@ var mb = math.Pow(2, 20)
 // DaemonImageProvider is a image.Provider capable of fetching and representing a docker image from the containerd daemon API.
 type DaemonImageProvider struct {
 	imageStr        string
-	tmpDirGen       *file.TempDirGenerator
+	tmpDirGen       runtime.TempDirProvider
 	client          *containerd.Client
 	platform        *image.Platform
 	namespace       string
@@ -50,7 +50,7 @@ type daemonProvideProgress struct {
 }
 
 // NewProviderFromDaemon creates a new provider instance for a specific image that will later be cached to the given directory.
-func NewProviderFromDaemon(imgStr string, tmpDirGen *file.TempDirGenerator, c *containerd.Client, namespace string, registryOptions image.RegistryOptions, platform *image.Platform) (*DaemonImageProvider, error) {
+func NewProviderFromDaemon(imgStr string, tmpDirGen runtime.TempDirProvider, c *containerd.Client, namespace string, registryOptions image.RegistryOptions, platform *image.Platform) (*DaemonImageProvider, error) {
 	ref, err := name.ParseReference(imgStr, name.WithDefaultRegistry(""))
 	if err != nil {
 		return nil, err

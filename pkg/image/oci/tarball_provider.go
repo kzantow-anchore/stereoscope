@@ -7,16 +7,17 @@ import (
 
 	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 // TarballImageProvider is an image.Provider for an OCI image (V1) for an existing tar on disk (from a buildah push <img> oci-archive:<name>.tar command).
 type TarballImageProvider struct {
 	path      string
-	tmpDirGen *file.TempDirGenerator
+	tmpDirGen runtime.TempDirProvider
 }
 
 // NewProviderFromTarball creates a new provider instance for the specific image tarball already at the given path.
-func NewProviderFromTarball(path string, tmpDirGen *file.TempDirGenerator) *TarballImageProvider {
+func NewProviderFromTarball(path string, tmpDirGen runtime.TempDirProvider) *TarballImageProvider {
 	return &TarballImageProvider{
 		path:      path,
 		tmpDirGen: tmpDirGen,

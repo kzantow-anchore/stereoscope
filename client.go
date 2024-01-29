@@ -13,6 +13,7 @@ import (
 	"github.com/anchore/stereoscope/internal/log"
 	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 var rootTempDirGenerator = file.NewTempDirGenerator("stereoscope")
@@ -73,8 +74,8 @@ func GetImage(ctx context.Context, imgStr string, options ...Option) (*image.Ima
 func GetImageFromSource(ctx context.Context, imgStr string, source image.Source, options ...Option) (*image.Image, error) {
 	log.Debugf("image: source=%+v location=%+v", source, imgStr)
 
-	// get config and apply options
-	cfg := DefaultImageProviderConfig()
+	// apply config options
+	cfg := image.ProviderConfig{}
 	if err := applyOptions(&cfg, options...); err != nil {
 		return nil, err
 	}
@@ -86,22 +87,34 @@ func GetImageFromSource(ctx context.Context, imgStr string, source image.Source,
 		providers = providers.Select(source)
 	}
 	if len(providers) < 1 {
-		return nil, fmt.Errorf("unable to find source: %s", source)
+		return nil, fmt.Errorf("unable to find image providers matching: '%s'", source)
 	}
 
-	return DetectImage(ctx, imgStr, cfg, providers.Collect()...)
+	return DetectImage(runtime.NewExecutionContext(ctx, rootTempDirGenerator), imgStr, DetectionConfig{
+		imageProviderConfig: cfg,
+		providers:           providers.Collect(),
+	})
 }
 
-// DetectImage returns the first image found by providers
-func DetectImage(ctx context.Context, userInput string, cfg image.ProviderConfig, providers ...image.Provider) (*image.Image, error) {
+type DetectionConfig struct {
+	imageProviderConfig image.ProviderConfig
+	providers           []image.Provider
+}
+
+// Detect returns the first image found by providers
+func DefaultDetectImage(userInput string) (*image.Image, error) {
+	return DetectImage(DefaultExecutionContext(), userInput, DefaultDetectionConfig())
+}
+
+func DetectImage(ctx runtime.ExecutionContext, userInput string, cfg DetectionConfig) (*image.Image, error) {
 	log.Debugf("detect image: location=%s", userInput)
 
 	var errs []error
-	if len(providers) == 0 {
-		providers = ImageProviders().Collect()
+	if len(cfg.providers) == 0 {
+		cfg.providers = ImageProviders().Collect()
 	}
-	for _, provider := range providers {
-		img, err := provider.Provide(ctx, userInput, cfg)
+	for _, provider := range cfg.providers {
+		img, err := provider.Provide(ctx, userInput, cfg.imageProviderConfig)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -116,18 +129,26 @@ func DetectImage(ctx context.Context, userInput string, cfg image.ProviderConfig
 	return nil, fmt.Errorf("unable to detect input for '%s', err: %w", userInput, errors.Join(errs...))
 }
 
+// Deprecated:
 func SetLogger(logger logger.Logger) {
 	log.Log = logger
 }
 
+// Deprecated:
 func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
 }
 
-func DefaultImageProviderConfig() image.ProviderConfig {
-	return image.ProviderConfig{
-		TempDirGenerator: rootTempDirGenerator.NewGenerator(),
-	}
+func DefaultDetectionConfig() DetectionConfig {
+	return DetectionConfig{}
+}
+
+func DefaultExecutionContext() runtime.ExecutionContext {
+	return NewExecutionContext(context.Background())
+}
+
+func NewExecutionContext(ctx context.Context) runtime.ExecutionContext {
+	return runtime.NewExecutionContext(ctx, rootTempDirGenerator)
 }
 
 // Cleanup deletes all directories created by stereoscope calls.

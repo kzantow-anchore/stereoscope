@@ -9,8 +9,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/anchore/stereoscope/internal/log"
-	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 var ErrMultipleManifests = fmt.Errorf("cannot process multiple docker manifests")
@@ -18,11 +18,11 @@ var ErrMultipleManifests = fmt.Errorf("cannot process multiple docker manifests"
 // TarballImageProvider is a image.Provider for a docker image (V2) for an existing tar on disk (the output from a "docker image save ..." command).
 type TarballImageProvider struct {
 	path      string
-	tmpDirGen *file.TempDirGenerator
+	tmpDirGen runtime.TempDirProvider
 }
 
 // NewProviderFromTarball creates a new provider instance for the specific image already at the given path.
-func NewProviderFromTarball(path string, tmpDirGen *file.TempDirGenerator) *TarballImageProvider {
+func NewProviderFromTarball(path string, tmpDirGen runtime.TempDirProvider) *TarballImageProvider {
 	return &TarballImageProvider{
 		path:      path,
 		tmpDirGen: tmpDirGen,

@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+
+	"github.com/anchore/stereoscope/runtime"
 )
 
 type TempDirGenerator struct {
@@ -12,6 +14,8 @@ type TempDirGenerator struct {
 	rootLocation string
 	children     []*TempDirGenerator
 }
+
+var _ runtime.TempDirProvider = (*TempDirGenerator)(nil)
 
 func NewTempDirGenerator(name string) *TempDirGenerator {
 	return &TempDirGenerator{

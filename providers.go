@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"runtime"
+	goRuntime "runtime"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -22,28 +22,38 @@ import (
 	dockerProvider "github.com/anchore/stereoscope/pkg/image/docker"
 	ociProvider "github.com/anchore/stereoscope/pkg/image/oci"
 	sifProvider "github.com/anchore/stereoscope/pkg/image/sif"
+	"github.com/anchore/stereoscope/runtime"
 	"github.com/anchore/stereoscope/tagged"
+)
+
+const (
+	FileTag     = "file"
+	DirTag      = "dir"
+	DaemonTag   = "daemon"
+	PullTag     = "pull"
+	RegistryTag = "registry"
 )
 
 func ImageProviders() tagged.Values[image.Provider] {
 	return tagged.Values[image.Provider]{
 		// file providers
-		provide(image.DockerTarballSource, dockerTarballProvider, "file"),
-		provide(image.OciTarballSource, ociTarballProvider, "file"),
-		provide(image.OciDirectorySource, ociDirectoryProvider, "file", "dir"),
-		provide(image.SingularitySource, singularityProvider, "file"),
+		provide(image.DockerTarballSource, dockerTarballProvider, FileTag),
+		provide(image.OciTarballSource, ociTarballProvider, FileTag),
+		provide(image.OciDirectorySource, ociDirectoryProvider, FileTag, DirTag),
+		provide(image.SingularitySource, singularityProvider, FileTag),
 
 		// daemon providers
-		provide(image.DockerDaemonSource, dockerDaemonProvider, "daemon", "pull"),
-		provide(image.PodmanDaemonSource, podmanDaemonProvider, "daemon", "pull"),
-		provide(image.ContainerdDaemonSource, containerdDaemonProvider, "daemon", "pull"),
+		provide(image.DockerDaemonSource, dockerDaemonProvider, DaemonTag, PullTag),
+		provide(image.PodmanDaemonSource, podmanDaemonProvider, DaemonTag, PullTag),
+		provide(image.ContainerdDaemonSource, containerdDaemonProvider, DaemonTag, PullTag),
 
 		// registry providers
-		provide(image.OciRegistrySource, ociRegistryProvider, "registry", "pull"),
+		provide(image.OciRegistrySource, ociRegistryProvider, RegistryTag, PullTag),
 	}
 }
 
-func dockerDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+//nolint:dupl
+func dockerDaemonProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -53,7 +63,7 @@ func dockerDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 		return nil, err
 	}
 
-	c2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	c2, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	pong, err := c.Ping(c2)
@@ -67,15 +77,16 @@ func dockerDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 		}
 	}()
 
-	provider, err := dockerProvider.NewProviderFromDaemon(userInput, cfg.TempDirGenerator, c, cfg.Platform)
+	provider, err := dockerProvider.NewProviderFromDaemon(userInput, ctx, c, cfg.Platform)
 	if err != nil {
 		return nil, err
 	}
 
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func podmanDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+//nolint:dupl
+func podmanDaemonProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -85,7 +96,7 @@ func podmanDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 		return nil, err
 	}
 
-	c2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	c2, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	pong, err := c.Ping(c2)
@@ -99,15 +110,15 @@ func podmanDaemonProvider(ctx context.Context, userInput string, cfg image.Provi
 		}
 	}()
 
-	provider, err := dockerProvider.NewProviderFromDaemon(userInput, cfg.TempDirGenerator, c, cfg.Platform)
+	provider, err := dockerProvider.NewProviderFromDaemon(userInput, ctx, c, cfg.Platform)
 	if err != nil {
 		return nil, err
 	}
 
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func containerdDaemonProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func containerdDaemonProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
@@ -117,7 +128,7 @@ func containerdDaemonProvider(ctx context.Context, userInput string, cfg image.P
 		return nil, err
 	}
 
-	c2, cancel := context.WithTimeout(ctx, 10*time.Second)
+	c2, cancel := context.WithTimeout(ctx.Context(), 10*time.Second)
 	defer cancel()
 
 	pong, err := c.Version(c2)
@@ -131,15 +142,15 @@ func containerdDaemonProvider(ctx context.Context, userInput string, cfg image.P
 		}
 	}()
 
-	provider, err := containerdProvider.NewProviderFromDaemon(userInput, cfg.TempDirGenerator, c, containerd.Namespace(), cfg.Registry, cfg.Platform)
+	provider, err := containerdProvider.NewProviderFromDaemon(userInput, ctx, c, containerd.Namespace(), cfg.Registry, cfg.Platform)
 	if err != nil {
 		return nil, err
 	}
 
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func dockerTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func dockerTarballProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.DockerTarballSource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not a Docker archive file: %w", err)
@@ -148,11 +159,11 @@ func dockerTarballProvider(ctx context.Context, userInput string, cfg image.Prov
 	if err != nil {
 		return nil, err
 	}
-	provider := dockerProvider.NewProviderFromTarball(filePath, cfg.TempDirGenerator)
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	provider := dockerProvider.NewProviderFromTarball(filePath, ctx)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func ociTarballProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociTarballProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.OciTarballSource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not an OCI archive file: %w", err)
@@ -161,11 +172,11 @@ func ociTarballProvider(ctx context.Context, userInput string, cfg image.Provide
 	if err != nil {
 		return nil, err
 	}
-	provider := ociProvider.NewProviderFromTarball(filePath, cfg.TempDirGenerator)
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	provider := ociProvider.NewProviderFromTarball(filePath, ctx)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func ociDirectoryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociDirectoryProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.OciDirectorySource, userInput, cfg)
 	if !exists || !isDir {
 		return nil, fmt.Errorf("not an OCI directory: %w", err)
@@ -174,11 +185,11 @@ func ociDirectoryProvider(ctx context.Context, userInput string, cfg image.Provi
 	if _, err := localFs.Stat(path.Join(filePath, "oci-layout")); err != nil {
 		return nil, err
 	}
-	provider := ociProvider.NewProviderFromPath(userInput, cfg.TempDirGenerator)
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	provider := ociProvider.NewProviderFromPath(userInput, ctx)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func singularityProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func singularityProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	filePath, exists, isDir, localFs, err := detectLocalFile(image.SingularitySource, userInput, cfg)
 	if !exists || isDir {
 		return nil, fmt.Errorf("not a Singularity archive: %w", err)
@@ -188,7 +199,7 @@ func singularityProvider(ctx context.Context, userInput string, cfg image.Provid
 	if err != nil {
 		return nil, fmt.Errorf("unable to open file=%s: %w", userInput, err)
 	}
-	defer func() { _ = f.Close() }()
+	ctx.RegisterCleanup(f.Close)
 
 	// Check for Singularity container.
 	fi, err := sif.LoadContainer(f, sif.OptLoadWithCloseOnUnload(false))
@@ -199,17 +210,17 @@ func singularityProvider(ctx context.Context, userInput string, cfg image.Provid
 	if err == nil {
 		return nil, err
 	}
-	provider := sifProvider.NewProviderFromPath(filePath, cfg.TempDirGenerator)
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	provider := sifProvider.NewProviderFromPath(filePath, ctx)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
-func ociRegistryProvider(ctx context.Context, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
+func ociRegistryProvider(ctx runtime.ExecutionContext, userInput string, cfg image.ProviderConfig) (*image.Image, error) {
 	if err := ensureRegistryReference(userInput); err != nil {
 		return nil, err
 	}
 	defaultPlatformIfNil(&cfg)
-	provider := ociProvider.NewProviderFromRegistry(userInput, cfg.TempDirGenerator, cfg.Registry, cfg.Platform)
-	return provider.Provide(ctx, cfg.AdditionalMetadata...)
+	provider := ociProvider.NewProviderFromRegistry(userInput, ctx, cfg.Registry, cfg.Platform)
+	return provider.Provide(ctx.Context(), cfg.AdditionalMetadata...)
 }
 
 // ensureRegistryReference takes a string and indicates if it conforms to a container image reference.
@@ -260,9 +271,33 @@ func detectTarEntry(fs afero.Fs, archive, path string) error {
 // do nothing.
 func defaultPlatformIfNil(cfg *image.ProviderConfig) {
 	if cfg.Platform == nil {
-		p, err := image.NewPlatform(fmt.Sprintf("linux/%s", runtime.GOARCH))
+		p, err := image.NewPlatform(fmt.Sprintf("linux/%s", goRuntime.GOARCH))
 		if err == nil {
 			cfg.Platform = p
 		}
 	}
+}
+
+type stereoscopeProvider struct {
+	name    string
+	provide image.ProviderFunc
+}
+
+func (p stereoscopeProvider) Provide(ctx runtime.ExecutionContext, userInput string, config image.ProviderConfig) (*image.Image, error) {
+	return p.provide(ctx, userInput, config)
+}
+
+func (p stereoscopeProvider) String() string {
+	return p.Name()
+}
+
+func (p stereoscopeProvider) Name() string {
+	return p.name
+}
+
+var _ image.Provider = (*stereoscopeProvider)(nil)
+
+// provide names and tags a provider func to be used in the set of all providers
+func provide(name image.Source, providerFunc image.ProviderFunc, tags ...string) tagged.Value[image.Provider] {
+	return tagged.New[image.Provider](stereoscopeProvider{name, providerFunc}, append([]string{name}, tags...)...)
 }

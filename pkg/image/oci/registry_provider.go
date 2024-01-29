@@ -12,20 +12,20 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/anchore/stereoscope/internal/log"
-	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 // RegistryImageProvider is an image.Provider capable of fetching and representing a container image fetched from a remote registry (described by the OCI distribution spec).
 type RegistryImageProvider struct {
 	imageStr        string
-	tmpDirGen       *file.TempDirGenerator
+	tmpDirGen       runtime.TempDirProvider
 	registryOptions image.RegistryOptions
 	platform        *image.Platform
 }
 
 // NewProviderFromRegistry creates a new provider instance for a specific image that will later be cached to the given directory.
-func NewProviderFromRegistry(imgStr string, tmpDirGen *file.TempDirGenerator, registryOptions image.RegistryOptions, platform *image.Platform) *RegistryImageProvider {
+func NewProviderFromRegistry(imgStr string, tmpDirGen runtime.TempDirProvider, registryOptions image.RegistryOptions, platform *image.Platform) *RegistryImageProvider {
 	return &RegistryImageProvider{
 		imageStr:        imgStr,
 		tmpDirGen:       tmpDirGen,

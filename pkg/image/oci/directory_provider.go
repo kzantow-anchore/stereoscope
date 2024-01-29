@@ -7,18 +7,18 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 
-	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 // DirectoryImageProvider is an image.Provider for an OCI image (V1) for an existing tar on disk (from a buildah push <img> oci:<img> command).
 type DirectoryImageProvider struct {
 	path      string
-	tmpDirGen *file.TempDirGenerator
+	tmpDirGen runtime.TempDirProvider
 }
 
 // NewProviderFromPath creates a new provider instance for the specific image already at the given path.
-func NewProviderFromPath(path string, tmpDirGen *file.TempDirGenerator) *DirectoryImageProvider {
+func NewProviderFromPath(path string, tmpDirGen runtime.TempDirProvider) *DirectoryImageProvider {
 	return &DirectoryImageProvider{
 		path:      path,
 		tmpDirGen: tmpDirGen,

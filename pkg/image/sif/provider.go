@@ -5,19 +5,19 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 
-	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
+	"github.com/anchore/stereoscope/runtime"
 )
 
 // SingularityImageProvider is an image.Provider for a Singularity Image Format (SIF) image.
 type SingularityImageProvider struct {
 	path      string
-	tmpDirGen *file.TempDirGenerator
+	tmpDirGen runtime.TempDirProvider
 }
 
 // NewProviderFromPath creates a new provider instance for the Singularity Image Format (SIF) image
 // at path.
-func NewProviderFromPath(path string, tmpDirGen *file.TempDirGenerator) *SingularityImageProvider {
+func NewProviderFromPath(path string, tmpDirGen runtime.TempDirProvider) *SingularityImageProvider {
 	return &SingularityImageProvider{
 		path:      path,
 		tmpDirGen: tmpDirGen,
