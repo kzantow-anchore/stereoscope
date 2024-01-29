@@ -2,7 +2,6 @@ package stereoscope
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -83,6 +82,10 @@ func GetImageFromSource(ctx context.Context, imgStr string, source image.Source,
 	// select image provider
 	providers := ImageProviders()
 	source = strings.ToLower(strings.TrimSpace(source))
+	if source == "" {
+		// if no source is explicitly specified, look for a known scheme like docker:
+		source, imgStr = ExtractProviderScheme(providers, imgStr)
+	}
 	if source != "" {
 		providers = providers.Select(source)
 	}
@@ -90,43 +93,7 @@ func GetImageFromSource(ctx context.Context, imgStr string, source image.Source,
 		return nil, fmt.Errorf("unable to find image providers matching: '%s'", source)
 	}
 
-	return DetectImage(runtime.NewExecutionContext(ctx, rootTempDirGenerator), imgStr, DetectionConfig{
-		imageProviderConfig: cfg,
-		providers:           providers.Collect(),
-	})
-}
-
-type DetectionConfig struct {
-	imageProviderConfig image.ProviderConfig
-	providers           []image.Provider
-}
-
-// Detect returns the first image found by providers
-func DefaultDetectImage(userInput string) (*image.Image, error) {
-	return DetectImage(DefaultExecutionContext(), userInput, DefaultDetectionConfig())
-}
-
-func DetectImage(ctx runtime.ExecutionContext, userInput string, cfg DetectionConfig) (*image.Image, error) {
-	log.Debugf("detect image: location=%s", userInput)
-
-	var errs []error
-	if len(cfg.providers) == 0 {
-		cfg.providers = ImageProviders().Collect()
-	}
-	for _, provider := range cfg.providers {
-		img, err := provider.Provide(ctx, userInput, cfg.imageProviderConfig)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		if img != nil {
-			err = img.Read()
-			if err != nil {
-				errs = append(errs, fmt.Errorf("could not read image: %w", err))
-			}
-			return img, errors.Join(errs...)
-		}
-	}
-	return nil, fmt.Errorf("unable to detect input for '%s', err: %w", userInput, errors.Join(errs...))
+	return image.Detect(runtime.NewExecutionContext(ctx, rootTempDirGenerator), imgStr, cfg, providers.Collect())
 }
 
 // Deprecated:
@@ -137,10 +104,6 @@ func SetLogger(logger logger.Logger) {
 // Deprecated:
 func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
-}
-
-func DefaultDetectionConfig() DetectionConfig {
-	return DetectionConfig{}
 }
 
 func DefaultExecutionContext() runtime.ExecutionContext {
