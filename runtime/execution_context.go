@@ -4,9 +4,16 @@ import (
 	"context"
 	"sync"
 
+	"github.com/wagoodman/go-partybus"
+
 	"github.com/anchore/go-logger"
+	"github.com/anchore/stereoscope/internal/bus"
 	"github.com/anchore/stereoscope/internal/log"
 )
+
+type Executor interface {
+	Execute(func(ExecutionContext) error)
+}
 
 type TempDirProvider interface {
 	NewDirectory(name ...string) (string, error)
@@ -19,23 +26,59 @@ type ExecutionContext interface {
 	Context() context.Context
 	RegisterCleanup(func() error)
 	Log() logger.Logger
-	// Execute(func() error) or Executor().Execute(...)
-	// Notify(msg any) or Bus().Notify(...)
+	Publisher() partybus.Publisher
+	Executor() Executor
 }
 
 func NewExecutionContext(ctx context.Context, tempDir TempDirProvider) ExecutionContext {
 	return &executionContext{
-		ctx:      ctx,
-		cleanups: nil,
-		tmp:      tempDir,
+		mu:        sync.Mutex{},
+		ctx:       ctx,
+		cleanups:  nil,
+		tmp:       tempDir,
+		log:       log.Log,
+		executor:  serialExecutor{},
+		publisher: staticPublisher{},
 	}
 }
 
+type serialExecutor struct {
+	ec ExecutionContext
+}
+
+func (s serialExecutor) Execute(f func(ExecutionContext) error) {
+	err := f(s.ec)
+	if err != nil {
+		s.ec.Log().Debugf("%v", err)
+	}
+}
+
+var _ Executor = (*serialExecutor)(nil)
+
+type staticPublisher struct{}
+
+func (s staticPublisher) Publish(event partybus.Event) {
+	bus.Publish(event)
+}
+
+var _ partybus.Publisher = (*staticPublisher)(nil)
+
 type executionContext struct {
-	mu       sync.Mutex
-	ctx      context.Context
-	cleanups []func() error
-	tmp      TempDirProvider
+	mu        sync.Mutex
+	ctx       context.Context
+	cleanups  []func() error
+	tmp       TempDirProvider
+	log       logger.Logger
+	publisher partybus.Publisher
+	executor  Executor
+}
+
+func (p *executionContext) Executor() Executor {
+	return p.executor
+}
+
+func (p *executionContext) Publisher() partybus.Publisher {
+	return p.publisher
 }
 
 func (p *executionContext) Context() context.Context {
@@ -77,7 +120,7 @@ func (p *executionContext) TempDirProvider() TempDirProvider {
 }
 
 func (p *executionContext) Log() logger.Logger {
-	return log.Log
+	return p.log
 }
 
 func execute(ctx ExecutionContext, fn func() error) {

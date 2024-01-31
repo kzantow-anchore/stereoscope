@@ -37,18 +37,18 @@ const (
 func ImageProviders() tagged.Values[image.Provider] {
 	return tagged.Values[image.Provider]{
 		// file providers
-		provide(image.DockerTarballSource, dockerTarballProvider, FileTag),
-		provide(image.OciTarballSource, ociTarballProvider, FileTag),
-		provide(image.OciDirectorySource, ociDirectoryProvider, FileTag, DirTag),
-		provide(image.SingularitySource, singularityProvider, FileTag),
+		provider(image.DockerTarballSource, dockerTarballProvider, FileTag),
+		provider(image.OciTarballSource, ociTarballProvider, FileTag),
+		provider(image.OciDirectorySource, ociDirectoryProvider, FileTag, DirTag),
+		provider(image.SingularitySource, singularityProvider, FileTag),
 
 		// daemon providers
-		provide(image.DockerDaemonSource, dockerDaemonProvider, DaemonTag, PullTag),
-		provide(image.PodmanDaemonSource, podmanDaemonProvider, DaemonTag, PullTag),
-		provide(image.ContainerdDaemonSource, containerdDaemonProvider, DaemonTag, PullTag),
+		provider(image.DockerDaemonSource, dockerDaemonProvider, DaemonTag, PullTag),
+		provider(image.PodmanDaemonSource, podmanDaemonProvider, DaemonTag, PullTag),
+		provider(image.ContainerdDaemonSource, containerdDaemonProvider, DaemonTag, PullTag),
 
 		// registry providers
-		provide(image.OciRegistrySource, ociRegistryProvider, RegistryTag, PullTag),
+		provider(image.OciRegistrySource, ociRegistryProvider, RegistryTag, PullTag),
 	}
 }
 
@@ -278,26 +278,26 @@ func defaultPlatformIfNil(cfg *image.ProviderConfig) {
 	}
 }
 
-type stereoscopeProvider struct {
+type imageProvider struct {
 	name    string
 	provide image.ProviderFunc
 }
 
-func (p stereoscopeProvider) Provide(ctx runtime.ExecutionContext, userInput string, config image.ProviderConfig) (*image.Image, error) {
+func (p imageProvider) Provide(ctx runtime.ExecutionContext, userInput string, config image.ProviderConfig) (*image.Image, error) {
 	return p.provide(ctx, userInput, config)
 }
 
-func (p stereoscopeProvider) String() string {
+func (p imageProvider) String() string {
 	return p.Name()
 }
 
-func (p stereoscopeProvider) Name() string {
+func (p imageProvider) Name() string {
 	return p.name
 }
 
-var _ image.Provider = (*stereoscopeProvider)(nil)
+var _ image.Provider = (*imageProvider)(nil)
 
-// provide names and tags a provider func to be used in the set of all providers
-func provide(name image.Source, providerFunc image.ProviderFunc, tags ...string) tagged.Value[image.Provider] {
-	return tagged.New[image.Provider](stereoscopeProvider{name, providerFunc}, append([]string{name}, tags...)...)
+// provider names and tags a provider func to be used in the set of all providers
+func provider(name image.Source, providerFunc image.ProviderFunc, tags ...string) tagged.Value[image.Provider] {
+	return tagged.New[image.Provider](imageProvider{name, providerFunc}, append([]string{name}, tags...)...)
 }

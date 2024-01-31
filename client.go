@@ -104,7 +104,9 @@ func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
 }
 
-func DefaultExecutionContext(ctx ...context.Context) runtime.ExecutionContext {
+type ExecutionContext = runtime.ExecutionContext
+
+func DefaultExecutionContext(ctx ...context.Context) ExecutionContext {
 	c := context.Background()
 	switch len(ctx) {
 	case 0:
