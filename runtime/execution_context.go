@@ -12,7 +12,7 @@ import (
 )
 
 type Executor interface {
-	Execute(func(ExecutionContext) error)
+	Execute(func() error)
 }
 
 type TempDirProvider interface {
@@ -46,8 +46,8 @@ type serialExecutor struct {
 	ec ExecutionContext
 }
 
-func (s serialExecutor) Execute(f func(ExecutionContext) error) {
-	err := f(s.ec)
+func (s serialExecutor) Execute(f func() error) {
+	err := f()
 	if err != nil {
 		s.ec.Log().Debugf("%v", err)
 	}
