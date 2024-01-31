@@ -14,6 +14,36 @@ type ProviderConfig struct {
 	Platform           *Platform
 }
 
+func (c ProviderConfig) WithRegistryOptions(options RegistryOptions) ProviderConfig {
+	c.Registry = options
+	return c
+}
+
+func (c ProviderConfig) WithInsecureSkipTLSVerify() ProviderConfig {
+	c.Registry.InsecureSkipTLSVerify = true
+	return c
+}
+
+func (c ProviderConfig) WithInsecureAllowHTTP() ProviderConfig {
+	c.Registry.InsecureUseHTTP = true
+	return c
+}
+
+func (c ProviderConfig) WithCredentials(credentials ...RegistryCredentials) ProviderConfig {
+	c.Registry.Credentials = append(c.Registry.Credentials, credentials...)
+	return c
+}
+
+func (c ProviderConfig) WithAdditionalMetadata(metadata ...AdditionalMetadata) ProviderConfig {
+	c.AdditionalMetadata = append(c.AdditionalMetadata, metadata...)
+	return c
+}
+
+func (c ProviderConfig) WithPlatform(platform Platform) ProviderConfig {
+	c.Platform = &platform
+	return c
+}
+
 // Provider is an abstraction for any object that provides image objects (e.g. the docker daemon API, a tar file of
 // an OCI image, podman varlink API, etc.).
 type Provider interface {

@@ -1,25 +1,11 @@
 package stereoscope
 
 import (
-	"context"
 	"strings"
 
 	"github.com/anchore/stereoscope/pkg/image"
 	"github.com/anchore/stereoscope/tagged"
 )
-
-// GetImageWithScheme replicates the previous behavior of GetImage with scheme parsing, i.e.
-// this function attempts to parse any scheme: prefixes to treat them as an explicit provider name
-//
-// Deprecated: since it is now possible to select which providers to use, using schemes
-// in the user input text is not necessary and should be avoided due to some ambiguity this introduces
-func GetImageWithScheme(ctx context.Context, userInput string, opts ...Option) (*image.Image, error) {
-	scheme, userInput := ExtractProviderScheme(ImageProviders(), userInput)
-	if scheme != "" {
-		return GetImageFromSource(ctx, userInput, scheme, opts...)
-	}
-	return GetImage(ctx, userInput, opts...)
-}
 
 // ExtractProviderScheme parses a string with any colon-delimited prefix and validates it against the set
 // of known provider tags, returning a valid source name and input string to use for GetImageFromSource

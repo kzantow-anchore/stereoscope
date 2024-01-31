@@ -93,25 +93,27 @@ func GetImageFromSource(ctx context.Context, imgStr string, source image.Source,
 		return nil, fmt.Errorf("unable to find image providers matching: '%s'", source)
 	}
 
-	return image.Detect(runtime.NewExecutionContext(ctx, rootTempDirGenerator), imgStr, cfg, providers.Collect())
+	return image.Detect(DefaultExecutionContext(ctx), imgStr, cfg, providers.Collect())
 }
 
-// Deprecated:
 func SetLogger(logger logger.Logger) {
 	log.Log = logger
 }
 
-// Deprecated:
 func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
 }
 
-func DefaultExecutionContext() runtime.ExecutionContext {
-	return NewExecutionContext(context.Background())
-}
-
-func NewExecutionContext(ctx context.Context) runtime.ExecutionContext {
-	return runtime.NewExecutionContext(ctx, rootTempDirGenerator)
+func DefaultExecutionContext(ctx ...context.Context) runtime.ExecutionContext {
+	c := context.Background()
+	switch len(ctx) {
+	case 0:
+	case 1:
+		c = ctx[0]
+	default:
+		panic(fmt.Sprintf("may only specify one context, got: %v", ctx))
+	}
+	return runtime.NewExecutionContext(c, rootTempDirGenerator)
 }
 
 // Cleanup deletes all directories created by stereoscope calls.
