@@ -7,32 +7,36 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 
+	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
-	"github.com/anchore/stereoscope/runtime"
 )
 
-// DirectoryImageProvider is an image.Provider for an OCI image (V1) for an existing tar on disk (from a buildah push <img> oci:<img> command).
-type DirectoryImageProvider struct {
-	path      string
-	tmpDirGen runtime.TempDirProvider
-}
+const Directory image.Source = image.OciDirectorySource
 
-// NewProviderFromPath creates a new provider instance for the specific image already at the given path.
-func NewProviderFromPath(path string, tmpDirGen runtime.TempDirProvider) *DirectoryImageProvider {
-	return &DirectoryImageProvider{
-		path:      path,
+// NewDirectoryProvider creates a new provider instance for the specific image already at the given path.
+func NewDirectoryProvider(tmpDirGen *file.TempDirGenerator) image.Provider {
+	return &directoryImageProvider{
 		tmpDirGen: tmpDirGen,
 	}
 }
 
+// directoryImageProvider is an image.Provider for an OCI image (V1) for an existing tar on disk (from a buildah push <img> oci:<img> command).
+type directoryImageProvider struct {
+	tmpDirGen *file.TempDirGenerator
+}
+
+func (p *directoryImageProvider) Name() string {
+	return Directory
+}
+
 // Provide an image object that represents the OCI image as a directory.
-func (p *DirectoryImageProvider) Provide(_ context.Context, userMetadata ...image.AdditionalMetadata) (*image.Image, error) {
-	pathObj, err := layout.FromPath(p.path)
+func (p *directoryImageProvider) Provide(_ context.Context, path string, userMetadata ...image.AdditionalMetadata) (*image.Image, error) {
+	pathObj, err := layout.FromPath(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read image from OCI directory path %q: %w", p.path, err)
+		return nil, fmt.Errorf("unable to read image from OCI directory path %q: %w", path, err)
 	}
 
-	index, err := layout.ImageIndexFromPath(p.path)
+	index, err := layout.ImageIndexFromPath(path)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse OCI directory index: %w", err)
 	}
@@ -77,7 +81,17 @@ func (p *DirectoryImageProvider) Provide(_ context.Context, userMetadata ...imag
 		return nil, err
 	}
 
-	return image.New(img, p.tmpDirGen, contentTempDir, metadata...), nil
+	out := image.New(img, p.tmpDirGen, contentTempDir, metadata...)
+	if out == nil {
+		return nil, nil
+	}
+
+	err = out.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
 }
 
 func checkManifestDigestsEqual(manifests []v1.Descriptor) bool {

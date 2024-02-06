@@ -23,7 +23,7 @@ func Test_NewProviderFromRegistry(t *testing.T) {
 	platform := &image.Platform{}
 
 	//WHEN
-	provider := NewProviderFromRegistry(imageStr, &generator, options, platform)
+	provider := NewRegistryProvider(imageStr, &generator, options, platform)
 
 	//THEN
 	assert.NotNil(t, provider.imageStr)
@@ -46,7 +46,7 @@ func Test_Registry_Provide_FailsUnauthorized(t *testing.T) {
 		},
 	}
 	platform := &image.Platform{}
-	provider := NewProviderFromRegistry(imageStr, &generator, options, platform)
+	provider := NewRegistryProvider(imageStr, &generator, options, platform)
 	ctx := context.Background()
 
 	//WHEN
@@ -65,7 +65,7 @@ func Test_Registry_Provide_FailsImageMissingPlatform(t *testing.T) {
 		InsecureSkipTLSVerify: true,
 	}
 	platform := &image.Platform{}
-	provider := NewProviderFromRegistry(imageStr, &generator, options, platform)
+	provider := NewRegistryProvider(imageStr, &generator, options, platform)
 	ctx := context.Background()
 
 	//WHEN
@@ -87,7 +87,7 @@ func Test_Registry_Provide(t *testing.T) {
 		OS:           "linux",
 		Architecture: "amd64",
 	}
-	provider := NewProviderFromRegistry(imageStr, &generator, options, platform)
+	provider := NewRegistryProvider(imageStr, &generator, options, platform)
 	ctx := context.Background()
 
 	//WHEN

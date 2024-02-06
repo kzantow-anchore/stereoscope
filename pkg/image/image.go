@@ -19,7 +19,6 @@ import (
 	"github.com/anchore/stereoscope/pkg/event"
 	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/filetree"
-	"github.com/anchore/stereoscope/runtime"
 )
 
 // Image represents a container image.
@@ -28,7 +27,7 @@ type Image struct {
 	image v1.Image
 	// tmpDirGen is a dir generator used by Providers. Multiple directories may
 	// be created and cleanup must use this to prevent polluting the disk
-	tmpDirGen runtime.TempDirProvider
+	tmpDirGen *file.TempDirGenerator
 	// contentCacheDir is where all layer tar cache is stored.
 	contentCacheDir string
 	// Metadata contains select image attributes
@@ -145,12 +144,12 @@ func WithOS(o string) AdditionalMetadata {
 
 // NewImage provides a new (unread) image object.
 // Deprecated: use New() instead
-func NewImage(image v1.Image, tmpDirGen runtime.TempDirProvider, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
+func NewImage(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
 	return New(image, tmpDirGen, contentCacheDir, additionalMetadata...)
 }
 
 // New provides a new (unread) image object.
-func New(image v1.Image, tmpDirGen runtime.TempDirProvider, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
+func New(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
 	imgObj := &Image{
 		image:            image,
 		tmpDirGen:        tmpDirGen,

@@ -2,13 +2,18 @@ package stereoscope
 
 import (
 	"fmt"
-
 	"github.com/anchore/stereoscope/pkg/image"
 )
 
-type Option func(*image.ProviderConfig) error
+type Option func(*config) error
 
-func applyOptions(cfg *image.ProviderConfig, options ...Option) error {
+type config struct {
+	Registry           image.RegistryOptions
+	AdditionalMetadata []image.AdditionalMetadata
+	Platform           *image.Platform
+}
+
+func applyOptions(cfg *config, options ...Option) error {
 	for _, option := range options {
 		if option == nil {
 			continue

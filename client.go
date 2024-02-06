@@ -2,6 +2,7 @@ package stereoscope
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -12,48 +13,47 @@ import (
 	"github.com/anchore/stereoscope/internal/log"
 	"github.com/anchore/stereoscope/pkg/file"
 	"github.com/anchore/stereoscope/pkg/image"
-	"github.com/anchore/stereoscope/runtime"
 )
 
 var rootTempDirGenerator = file.NewTempDirGenerator("stereoscope")
 
 func WithRegistryOptions(options image.RegistryOptions) Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		c.Registry = options
 		return nil
 	}
 }
 
 func WithInsecureSkipTLSVerify() Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		c.Registry.InsecureSkipTLSVerify = true
 		return nil
 	}
 }
 
 func WithInsecureAllowHTTP() Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		c.Registry.InsecureUseHTTP = true
 		return nil
 	}
 }
 
 func WithCredentials(credentials ...image.RegistryCredentials) Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		c.Registry.Credentials = append(c.Registry.Credentials, credentials...)
 		return nil
 	}
 }
 
 func WithAdditionalMetadata(metadata ...image.AdditionalMetadata) Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		c.AdditionalMetadata = append(c.AdditionalMetadata, metadata...)
 		return nil
 	}
 }
 
 func WithPlatform(platform string) Option {
-	return func(c *image.ProviderConfig) error {
+	return func(c *config) error {
 		p, err := image.NewPlatform(platform)
 		if err != nil {
 			return err
@@ -73,27 +73,40 @@ func GetImage(ctx context.Context, imgStr string, options ...Option) (*image.Ima
 func GetImageFromSource(ctx context.Context, imgStr string, source image.Source, options ...Option) (*image.Image, error) {
 	log.Debugf("image: source=%+v location=%+v", source, imgStr)
 
-	// apply config options
-	cfg := image.ProviderConfig{}
+	// apply ImageProviderConfig config
+	cfg := config{}
 	if err := applyOptions(&cfg, options...); err != nil {
 		return nil, err
 	}
 
 	// select image provider
-	providers := ImageProviders()
+	providers := ImageProviders(ImageProviderConfig{
+		Registry: cfg.Registry,
+		Platform: cfg.Platform,
+	})
 	source = strings.ToLower(strings.TrimSpace(source))
 	if source == "" {
 		// if no source is explicitly specified, look for a known scheme like docker:
-		source, imgStr = ExtractProviderScheme(providers, imgStr)
+		source, imgStr = ExtractScheme(providers, imgStr)
 	}
 	if source != "" {
 		providers = providers.Select(source)
-	}
-	if len(providers) < 1 {
-		return nil, fmt.Errorf("unable to find image providers matching: '%s'", source)
+		if len(providers) == 0 {
+			return nil, fmt.Errorf("unable to find image providers matching: '%s'", source)
+		}
 	}
 
-	return image.Detect(DefaultExecutionContext(ctx), imgStr, cfg, providers.Collect())
+	var errs []error
+	for _, provider := range providers.Collect() {
+		img, err := provider.Provide(ctx, imgStr, cfg.AdditionalMetadata...)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if img != nil {
+			return img, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to detect input for '%s', errs: %w", imgStr, errors.Join(errs...))
 }
 
 func SetLogger(logger logger.Logger) {
@@ -102,20 +115,6 @@ func SetLogger(logger logger.Logger) {
 
 func SetBus(b *partybus.Bus) {
 	bus.SetPublisher(b)
-}
-
-type ExecutionContext = runtime.ExecutionContext
-
-func DefaultExecutionContext(ctx ...context.Context) ExecutionContext {
-	c := context.Background()
-	switch len(ctx) {
-	case 0:
-	case 1:
-		c = ctx[0]
-	default:
-		panic(fmt.Sprintf("may only specify one context, got: %v", ctx))
-	}
-	return runtime.NewExecutionContext(c, rootTempDirGenerator)
 }
 
 // Cleanup deletes all directories created by stereoscope calls.

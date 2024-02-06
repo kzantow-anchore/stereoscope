@@ -117,7 +117,7 @@ func (t Values[T]) Join(taggedValues ...Value[T]) Values[T] {
 func isEqual[T any](a, b T) bool {
 	va := reflect.ValueOf(a)
 	vb := reflect.ValueOf(b)
-	if va.Type().Comparable() {
+	if va.Type().Comparable() && vb.Type().Comparable() {
 		return va.Equal(vb)
 	}
 	if va.Type().Kind() == reflect.Func {
