@@ -89,7 +89,7 @@ func (p *registryImageProvider) Provide(ctx context.Context, imageStr string, us
 	// apply user-supplied metadata last to override any default behavior
 	metadata = append(metadata, userMetadata...)
 
-	return image.New(img, p.tmpDirGen, imageTempDir, metadata...), nil
+	return image.Read(image.New(img, p.tmpDirGen, imageTempDir, metadata...))
 }
 
 func prepareReferenceOptions(registryOptions image.RegistryOptions) []name.Option {

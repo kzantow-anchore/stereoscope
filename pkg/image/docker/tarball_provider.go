@@ -87,15 +87,5 @@ func (p *tarballImageProvider) Provide(_ context.Context, path string, userMetad
 		return nil, err
 	}
 
-	out := image.New(img, p.tmpDirGen, contentTempDir, metadata...)
-	if out == nil {
-		return nil, nil
-	}
-
-	err = out.Read()
-	if err != nil {
-		return nil, err
-	}
-
-	return out, nil
+	return image.Read(image.New(img, p.tmpDirGen, contentTempDir, metadata...))
 }

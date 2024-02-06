@@ -56,5 +56,5 @@ func (p *singularityImageProvider) Provide(_ context.Context, path string, userM
 	}
 	metadata = append(metadata, userMetadata...)
 
-	return image.New(ui, p.tmpDirGen, contentCacheDir, metadata...), nil
+	return image.Read(image.New(ui, p.tmpDirGen, contentCacheDir, metadata...))
 }
