@@ -7,7 +7,7 @@ In order to test and develop in this repo you will need the following dependenci
 - docker
 - make
 - podman (for benchmark and integration tests only)
-- containerd (for integration tests only)
+- containerd (for integration tests only; see [containerd on macOS](#Containerd_on_macOS))
 - skopeo (for integration tests only)
 
 After cloning the following step can help you get setup:
@@ -53,3 +53,22 @@ The `filetree.FileTree` object represents a filesystem and consists of `filenode
 The `fs.FS` abstraction has been implemented on `filetree.FileTree` to allow for easy integration with the standard library as well as to interop with the `doublestar` library to facilitate globing. Using the `fs.FS` abstraction for filetree operations is faster than OS interactions with the filesystem directly but relatively slower than the indexes provided by `image.FileCatalog` and `file.Index`.
 
 `filetre.FileTree` objects can be created with a corresponding `file.Index` object by leveraging the `filetree.Builder` object, which aids in the indexing of files. 
+
+### Containerd on macOS
+
+Using `containerd` on macOS is not something especially easy to set up, since there are no official binaries for macOS available.
+In order to run containerd for testing purposes, it's possible to use [Colima](https://github.com/abiosoft/colima). To quickly get up and running:
+```shell
+# get the latest colima
+brew install colima
+# set up a containerd runtime environment
+colima start --runtime containerd
+# ssh to the previously set up env
+colima ssh
+# install the latest version of go in /usr/local/go
+curl "https://dl.google.com/go/$(curl -s https://go.dev/VERSION?m=text|head -1).linux-amd64.tar.gz" | sudo tar -zx -C /usr/local
+# setup path
+export PATH=$PATH:/usr/local/go/bin
+```
+At this point, you should have a functional linux environment, with `ctr` available,
+so things like `go test ./... -run TestSimpleImage/containerd` should work.
