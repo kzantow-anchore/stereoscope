@@ -277,8 +277,15 @@ func (p *daemonImageProvider) Provide(ctx context.Context) (*image.Image, error)
 	}
 
 	// use the existing tarball provider to process what was pulled from the docker daemon
-	return NewArchiveProvider(p.tmpDirGen, tarFileName, withInspectMetadata(inspectResult)...).
-		Provide(ctx)
+	img, err := NewArchiveProvider(p.tmpDirGen, tarFileName).Provide(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = setImageMetadata(img, inspectResult)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
 
 func (p *daemonImageProvider) saveImage(ctx context.Context, apiClient client.APIClient, imageRef string) (string, error) {
@@ -396,14 +403,20 @@ func (p *daemonImageProvider) validatePlatform(i types.ImageInspect) error {
 	return nil
 }
 
-func withInspectMetadata(i types.ImageInspect) (metadata []image.AdditionalMetadata) {
-	metadata = append(metadata,
-		image.WithTags(i.RepoTags...),
-		image.WithRepoDigests(i.RepoDigests...),
-		image.WithArchitecture(i.Architecture, ""), // since we don't have variant info from the image directly, we don't report it
-		image.WithOS(i.Os),
-	)
-	return metadata
+func setImageMetadata(img *image.Image, i types.ImageInspect) error {
+	img.AppendTags(i.RepoTags...)
+	img.SetRepoDigests(i.RepoDigests...)
+
+	p := image.Platform{
+		Architecture: i.Architecture,
+		OS:           i.Os,
+	}
+	err := p.Validate()
+	if err != nil {
+		return err
+	}
+	img.SetPlatform(p)
+	return nil
 }
 
 func encodeCredentials(authConfig configTypes.AuthConfig) (string, error) {

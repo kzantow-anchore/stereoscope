@@ -73,28 +73,24 @@ func (p *registryImageProvider) Provide(ctx context.Context) (*image.Image, erro
 	// note: the descriptor is fetched from the registry, and the descriptor digest is the same as the repo digest
 	repoDigest := fmt.Sprintf("%s/%s@%s", ref.Context().RegistryStr(), ref.Context().RepositoryStr(), descriptor.Digest.String())
 
-	metadata := []image.AdditionalMetadata{
-		image.WithRepoDigests(repoDigest),
-	}
-
-	// make a best effort to get the manifest, should not block getting an image though if it fails
-	if manifestBytes, err := img.RawManifest(); err == nil {
-		metadata = append(metadata, image.WithManifest(manifestBytes))
-	}
-
-	if platform != nil {
-		metadata = append(metadata,
-			image.WithArchitecture(platform.Architecture, platform.Variant),
-			image.WithOS(platform.OS),
-		)
-	}
-
-	out := image.New(img, p.tmpDirGen, imageTempDir, metadata...)
+	out := image.New(img, p.tmpDirGen, imageTempDir)
 	err = out.Read()
 	if err != nil {
 		return nil, err
 	}
-	return out, err
+
+	out.SetRepoDigests(repoDigest)
+
+	// make a best effort to get the manifest, should not block getting an image though if it fails
+	if manifestBytes, err := img.RawManifest(); err == nil {
+		out.SetManifest(manifestBytes)
+	}
+
+	if platform != nil {
+		out.SetPlatform(*platform)
+	}
+
+	return out, nil
 }
 
 func prepareReferenceOptions(registryOptions image.RegistryOptions) []name.Option {

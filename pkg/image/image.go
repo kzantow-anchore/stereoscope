@@ -38,123 +38,69 @@ type Image struct {
 	FileCatalog FileCatalogReader
 
 	SquashedSearchContext filetree.Searcher
-
-	overrideMetadata []AdditionalMetadata
 }
 
-type AdditionalMetadata func(*Image) error
+func (i *Image) AppendTags(tags ...string) {
+	existingTags := strset.New()
+	for _, t := range i.Metadata.Tags {
+		existingTags.Add(t.String())
+	}
 
-func WithTags(tags ...string) AdditionalMetadata {
-	return func(image *Image) error {
-		existingTags := strset.New()
-		for _, t := range image.Metadata.Tags {
-			existingTags.Add(t.String())
+	for _, t := range tags {
+		// it is possible that we are given references that have both a tag and a digest (or only one)
+		// we should only be allowing tags (stripping off digests if they are present)
+		fields := strings.Split(t, "@")
+		withNoDigest := fields[0]
+		if !strings.Contains(withNoDigest, ":") {
+			continue
 		}
-
-		for _, t := range tags {
-			// it is possible that we are given references that have both a tag and a digest (or only one)
-			// we should only be allowing tags (stripping off digests if they are present)
-			fields := strings.Split(t, "@")
-			withNoDigest := fields[0]
-			if !strings.Contains(withNoDigest, ":") {
-				continue
-			}
-			tagObj, err := name.NewTag(withNoDigest)
-			if err != nil {
-				log.Warnf("unable to parse additional image tag to add %q: %+v", t, err)
-				continue
-			}
-			if !existingTags.Has(tagObj.String()) {
-				image.Metadata.Tags = append(image.Metadata.Tags, tagObj)
-			}
-		}
-		return nil
-	}
-}
-
-func WithManifest(manifest []byte) AdditionalMetadata {
-	return func(image *Image) error {
-		image.Metadata.RawManifest = manifest
-		image.Metadata.ManifestDigest = fmt.Sprintf("sha256:%x", sha256.Sum256(manifest))
-		return nil
-	}
-}
-
-func WithManifestDigest(digest string) AdditionalMetadata {
-	return func(image *Image) error {
-		image.Metadata.ManifestDigest = digest
-		return nil
-	}
-}
-
-func WithConfig(config []byte) AdditionalMetadata {
-	return func(image *Image) error {
-		image.Metadata.RawConfig = config
-		image.Metadata.ID = fmt.Sprintf("sha256:%x", sha256.Sum256(config))
-		return nil
-	}
-}
-
-func WithRepoDigests(digests ...string) AdditionalMetadata {
-	return func(image *Image) error {
-		image.Metadata.RepoDigests = append(image.Metadata.RepoDigests, digests...)
-		return nil
-	}
-}
-
-func WithPlatform(platform string) AdditionalMetadata {
-	return func(image *Image) error {
-		p, err := NewPlatform(platform)
+		tagObj, err := name.NewTag(withNoDigest)
 		if err != nil {
-			return err
+			log.Warnf("unable to parse additional image tag to add %q: %+v", t, err)
+			continue
 		}
-		image.Metadata.Architecture = p.Architecture
-		image.Metadata.Variant = p.Variant
-		image.Metadata.OS = p.OS
-		return nil
+		if !existingTags.Has(tagObj.String()) {
+			i.Metadata.Tags = append(i.Metadata.Tags, tagObj)
+		}
 	}
 }
 
-func WithArchitecture(architecture, variant string) AdditionalMetadata {
-	return func(image *Image) error {
-		if architecture == "" {
-			return nil
-		}
-		if !isKnownArch(architecture) {
-			return fmt.Errorf("unknown architecture: %s", architecture)
-		}
-		image.Metadata.Architecture = architecture
-		image.Metadata.Variant = variant
-		return nil
-	}
+func (i *Image) SetManifest(manifest []byte) {
+	i.Metadata.RawManifest = manifest
+	i.Metadata.ManifestDigest = fmt.Sprintf("sha256:%x", sha256.Sum256(manifest))
 }
 
-func WithOS(o string) AdditionalMetadata {
-	return func(image *Image) error {
-		if o == "" {
-			return nil
-		}
-		if !isKnownOS(o) {
-			return fmt.Errorf("unknown OS: %s", o)
-		}
-		image.Metadata.OS = o
-		return nil
-	}
+func (i *Image) SetManifestDigest(digest string) {
+	i.Metadata.ManifestDigest = digest
+}
+
+func (i *Image) SetConfig(config []byte) {
+	i.Metadata.RawConfig = config
+	i.Metadata.ID = fmt.Sprintf("sha256:%x", sha256.Sum256(config))
+}
+
+func (i *Image) SetRepoDigests(digests ...string) {
+	i.Metadata.RepoDigests = append(i.Metadata.RepoDigests, digests...)
+}
+
+func (i *Image) SetPlatform(platform Platform) {
+	i.Metadata.Architecture = platform.Architecture
+	i.Metadata.Variant = platform.Variant
+	i.Metadata.OS = platform.OS
 }
 
 // NewImage provides a new (unread) image object.
 // Deprecated: use New() instead
-func NewImage(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
-	return New(image, tmpDirGen, contentCacheDir, additionalMetadata...)
+func NewImage(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string) *Image {
+	return New(image, tmpDirGen, contentCacheDir)
 }
 
 // New provides a new (unread) image object.
-func New(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string, additionalMetadata ...AdditionalMetadata) *Image {
+func New(image v1.Image, tmpDirGen *file.TempDirGenerator, contentCacheDir string) *Image {
 	imgObj := &Image{
-		image:            image,
-		tmpDirGen:        tmpDirGen,
-		contentCacheDir:  contentCacheDir,
-		overrideMetadata: additionalMetadata,
+		image:           image,
+		tmpDirGen:       tmpDirGen,
+		contentCacheDir: contentCacheDir,
 	}
 	return imgObj
 }
@@ -183,15 +129,6 @@ func (i *Image) trackReadProgress(metadata Metadata) *progress.Manual {
 	return prog
 }
 
-func (i *Image) applyOverrideMetadata() error {
-	for _, optionFn := range i.overrideMetadata {
-		if err := optionFn(i); err != nil {
-			return fmt.Errorf("unable to override metadata option: %w", err)
-		}
-	}
-	return nil
-}
-
 // Read parses information from the underlying image tar into this struct. This includes image metadata, layer
 // metadata, layer file trees, and layer squash trees (which implies the image squash tree).
 func (i *Image) Read() error {
@@ -199,11 +136,6 @@ func (i *Image) Read() error {
 	var err error
 	i.Metadata, err = readImageMetadata(i.image)
 	if err != nil {
-		return err
-	}
-
-	// override any metadata with what the user has provided manually
-	if err = i.applyOverrideMetadata(); err != nil {
 		return err
 	}
 

@@ -46,9 +46,9 @@ func WithCredentials(credentials ...image.RegistryCredentials) Option {
 	}
 }
 
-func WithAdditionalMetadata(metadata ...image.AdditionalMetadata) Option {
+func WithAdditionalMetadata(metadata ...imageUpdate) Option {
 	return func(c *config) error {
-		c.AdditionalMetadata = append(c.AdditionalMetadata, metadata...)
+		c.ImageUpdates = append(c.ImageUpdates, metadata...)
 		return nil
 	}
 }
@@ -112,7 +112,7 @@ func getImageFromSource(ctx context.Context, imgStr string, source image.Source,
 			errs = append(errs, err)
 		}
 		if img != nil {
-			err = applyAdditionalMetadata(img, cfg.AdditionalMetadata...)
+			err = applyImageUpdates(img, cfg.ImageUpdates...)
 			return img, err
 		}
 	}

@@ -95,8 +95,15 @@ func (p *daemonImageProvider) Provide(ctx context.Context) (*image.Image, error)
 	}
 
 	// use the existing tarball provider to process what was pulled from the containerd daemon
-	return stereoscopeDocker.NewArchiveProvider(p.tmpDirGen, tarFileName, withMetadata(resolvedPlatform, p.imageStr)...).
-		Provide(ctx)
+	out, err := stereoscopeDocker.NewArchiveProvider(p.tmpDirGen, tarFileName).Provide(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = setMetadata(out, resolvedPlatform, p.imageStr)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // pull a containerd image
@@ -489,19 +496,26 @@ func prepareReferenceOptions(registryOptions image.RegistryOptions) []name.Optio
 	return options
 }
 
-func withMetadata(platform *platforms.Platform, ref string) (metadata []image.AdditionalMetadata) {
+func setMetadata(img *image.Image, platform *platforms.Platform, ref string) error {
 	if platform != nil {
-		metadata = append(metadata,
-			image.WithArchitecture(platform.Architecture, platform.Variant),
-			image.WithOS(platform.OS),
-		)
+		p := image.Platform{
+			Architecture: platform.Architecture,
+			OS:           platform.OS,
+			Variant:      platform.Variant,
+		}
+		err := p.Validate()
+		if err != nil {
+			return err
+		}
+		img.SetPlatform(p)
 	}
 
 	if strings.Contains(ref, ":") {
 		// remove digest from ref
-		metadata = append(metadata, image.WithTags(strings.Split(ref, "@")[0]))
+		img.AppendTags(strings.Split(ref, "@")[0])
 	}
-	return metadata
+
+	return nil
 }
 
 // if image doesn't have host set, add docker hub by default

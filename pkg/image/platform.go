@@ -62,6 +62,20 @@ func (p *Platform) String() string {
 	return strings.Join(fields, "/")
 }
 
+// Validate returns an error if the Architecture or OS are not known
+func (p *Platform) Validate() error {
+	if p == nil {
+		return nil
+	}
+	if !isKnownArch(p.Architecture) {
+		return fmt.Errorf("unknown architecture: %s", p.Architecture)
+	}
+	if !isKnownOS(p.OS) {
+		return fmt.Errorf("unknown OS: %s", p.OS)
+	}
+	return nil
+}
+
 // parse has been extracted out from containerd (platforms/platforms.go). The behavior in containerd is to use the
 // runtime package to assume default values. This might be OK for a container engine, however, syft and other consumers
 // of stereoscope are at the client side, where we cannot fill default OS/arch values based on the client we

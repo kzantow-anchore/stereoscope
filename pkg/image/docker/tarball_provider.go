@@ -16,11 +16,10 @@ import (
 const Archive image.Source = image.DockerTarballSource
 
 // NewArchiveProvider creates a new provider able to resolve docker tarball archives
-func NewArchiveProvider(tmpDirGen *file.TempDirGenerator, path string, additionalMetadata ...image.AdditionalMetadata) image.Provider {
+func NewArchiveProvider(tmpDirGen *file.TempDirGenerator, path string) image.Provider {
 	return &tarballImageProvider{
-		tmpDirGen:          tmpDirGen,
-		path:               path,
-		additionalMetadata: additionalMetadata,
+		tmpDirGen: tmpDirGen,
+		path:      path,
 	}
 }
 
@@ -28,9 +27,8 @@ var ErrMultipleManifests = fmt.Errorf("cannot process multiple docker manifests"
 
 // tarballImageProvider is a image.Provider for a docker image (V2) for an existing tar on disk (the output from a "docker image save ..." command).
 type tarballImageProvider struct {
-	tmpDirGen          *file.TempDirGenerator
-	path               string
-	additionalMetadata []image.AdditionalMetadata
+	tmpDirGen *file.TempDirGenerator
+	path      string
 }
 
 func (p *tarballImageProvider) Name() string {
@@ -48,11 +46,21 @@ func (p *tarballImageProvider) Provide(_ context.Context) (*image.Image, error) 
 		return nil, fmt.Errorf("unable to provide image from tarball: %w", err)
 	}
 
+	contentTempDir, err := p.tmpDirGen.NewDirectory("docker-tarball-image")
+	if err != nil {
+		return nil, err
+	}
+
+	out := image.New(img, p.tmpDirGen, contentTempDir)
+	err = out.Read()
+	if err != nil {
+		return nil, err
+	}
+
 	// make a best-effort to generate an OCI manifest and gets tags, but ultimately this should be considered optional
 	var rawOCIManifest []byte
 	var rawConfig []byte
 	var ociManifest *v1.Manifest
-	var metadata []image.AdditionalMetadata
 
 	theManifest, err := extractManifest(p.path)
 	if err != nil {
@@ -61,7 +69,7 @@ func (p *tarballImageProvider) Provide(_ context.Context) (*image.Image, error) 
 
 	if theManifest != nil {
 		// given that we have a manifest, continue processing to get the tags and OCI manifest
-		metadata = append(metadata, image.WithTags(theManifest.allTags()...))
+		out.AppendTags(theManifest.allTags()...)
 
 		ociManifest, rawConfig, err = generateOCIManifest(p.path, theManifest)
 		if err != nil {
@@ -70,7 +78,7 @@ func (p *tarballImageProvider) Provide(_ context.Context) (*image.Image, error) 
 
 		// we may have the config available, use it
 		if rawConfig != nil {
-			metadata = append(metadata, image.WithConfig(rawConfig))
+			out.SetConfig(rawConfig)
 		}
 	}
 
@@ -79,22 +87,9 @@ func (p *tarballImageProvider) Provide(_ context.Context) (*image.Image, error) 
 		if err != nil {
 			log.Warnf("failed to serialize OCI manifest: %+v", err)
 		} else {
-			metadata = append(metadata, image.WithManifest(rawOCIManifest))
+			out.SetManifest(rawOCIManifest)
 		}
 	}
 
-	// apply user-supplied metadata last to override any default behavior
-	metadata = append(metadata, p.additionalMetadata...)
-
-	contentTempDir, err := p.tmpDirGen.NewDirectory("docker-tarball-image")
-	if err != nil {
-		return nil, err
-	}
-
-	out := image.New(img, p.tmpDirGen, contentTempDir, metadata...)
-	err = out.Read()
-	if err != nil {
-		return nil, err
-	}
-	return out, err
+	return out, nil
 }

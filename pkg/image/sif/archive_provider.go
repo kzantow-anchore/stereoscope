@@ -51,16 +51,22 @@ func (p *singularityImageProvider) Provide(_ context.Context) (*image.Image, err
 		return nil, err
 	}
 
-	// Apply user-supplied metadata last to override any default behavior.
-	metadata := []image.AdditionalMetadata{
-		image.WithOS("linux"),
-		image.WithArchitecture(si.arch, ""),
-	}
-
-	out := image.New(ui, p.tmpDirGen, contentCacheDir, metadata...)
+	out := image.New(ui, p.tmpDirGen, contentCacheDir)
 	err = out.Read()
 	if err != nil {
 		return nil, err
 	}
-	return out, err
+
+	// Apply user-supplied metadata last to override any default behavior.
+	platform := image.Platform{
+		Architecture: si.arch,
+		OS:           "linux",
+	}
+	err = platform.Validate()
+	if err != nil {
+		return nil, err
+	}
+	out.SetPlatform(platform)
+
+	return out, nil
 }

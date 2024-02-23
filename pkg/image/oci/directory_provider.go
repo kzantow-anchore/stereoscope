@@ -65,27 +65,24 @@ func (p *directoryImageProvider) Provide(_ context.Context) (*image.Image, error
 		return nil, fmt.Errorf("unable to parse OCI directory as an image: %w", err)
 	}
 
-	var metadata = []image.AdditionalMetadata{
-		image.WithManifestDigest(manifest.Digest.String()),
-	}
-
-	// make a best-effort attempt at getting the raw indexManifest
-	rawManifest, err := img.RawManifest()
-	if err == nil {
-		metadata = append(metadata, image.WithManifest(rawManifest))
-	}
-
 	contentTempDir, err := p.tmpDirGen.NewDirectory("oci-dir-image")
 	if err != nil {
 		return nil, err
 	}
 
-	out := image.New(img, p.tmpDirGen, contentTempDir, metadata...)
+	out := image.New(img, p.tmpDirGen, contentTempDir)
 	err = out.Read()
 	if err != nil {
 		return nil, err
 	}
-	return out, err
+
+	// make a best-effort attempt at getting the raw indexManifest
+	rawManifest, err := img.RawManifest()
+	if err == nil {
+		out.SetManifest(rawManifest)
+	}
+	out.SetManifestDigest(manifest.Digest.String())
+	return out, nil
 }
 
 func checkManifestDigestsEqual(manifests []v1.Descriptor) bool {

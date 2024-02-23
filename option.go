@@ -10,10 +10,12 @@ import (
 type Option func(*config) error
 
 type config struct {
-	Registry           image.RegistryOptions
-	AdditionalMetadata []image.AdditionalMetadata
-	Platform           *image.Platform
+	Registry     image.RegistryOptions
+	ImageUpdates []imageUpdate
+	Platform     *image.Platform
 }
+
+type imageUpdate func(*image.Image) error
 
 func applyOptions(cfg *config, options ...Option) error {
 	for _, option := range options {
@@ -27,7 +29,7 @@ func applyOptions(cfg *config, options ...Option) error {
 	return nil
 }
 
-func applyAdditionalMetadata(img *image.Image, metadata ...image.AdditionalMetadata) error {
+func applyImageUpdates(img *image.Image, metadata ...imageUpdate) error {
 	var errs error
 	for _, userMetadata := range metadata {
 		err := userMetadata(img)
